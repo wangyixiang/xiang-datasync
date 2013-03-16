@@ -331,6 +331,4 @@ class SVNSyncer(DataSync):
     
     
 if __name__ == "__main__":
-    dirsync = DirectorySyncer([r'\\fileserver\RD\QA\BugStreams'], [r'D:\BugStreams'])
-    dirsync._included.append('stream.log')
-    dirsync.sync()
+    pass

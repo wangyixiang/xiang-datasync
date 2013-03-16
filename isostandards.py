@@ -3,8 +3,10 @@
 #leaf.
 import logging
 import os
-import urllib2
 import re
+import subprocess
+import urllib2
+
 
 DirURL = '/ittf/PubliclyAvailableStandards/ISO_IEC_14496-26_2010_Bitstreams/'
 SiteAddress = 'http://standards.iso.org'
@@ -59,9 +61,74 @@ class StructureCapturer(object):
             return
 
 
+
+class HttpDataSyncer(object):
+    """
+    Actually after we have the map captured in StructureCapturer class, it's 
+    ease to get all the data we want. 
+    """
+    def __init__(self, dir_root, site, start_location):
+        self._dir_root = dir_root
+        self._site = site
+        self._start_location = start_location
+    
+    def sync(self):
+        self.__get_full_list_from_root()
+        for item in self._full_list_to_download:
+            try:
+                f = open(item)
+                data = f.read(len(FileMarker))
+                f.close()
+                if not data == FileMarker:
+                    logging.warn("%s already contained data." % item)
+                    continue
+                self._get_data(item)
+            except Exception:
+                logging.exception("Failed on getting data for %s ." % item)
+                
+                
+    def __get_full_list_from_root(self):
+        def fill_list(parent_path):
+            pathlist = os.listdir(parent_path)
+            for path in pathlist:
+                if not os.path.isdir(os.path.join(parent_path, path)):
+                    self._full_list_to_download.append(os.path.join(\
+                        parent_path, path))
+                else:
+                    fill_list(os.path.join(parent_path, path))
+
+        self._full_list_to_download = []
+        if self._dir_root == None:
+            return
+        fill_list(self._dir_root)
+    
+    def _get_data(self, path):
+        data_url = path.replace('\\','/')[len(self._dir_root):]
+        data_url = self._site + self._start_location + data_url
+        self.__get_data_wget(data_url, path)
+        
+    
+    def __get_data_wget(self, url, path):
+        try:
+            subprocess.check_call(['wget', '-O', path, url])
+            logging.info("got data from %s to %s ." % (url, path))
+        except subprocess.CalledProcessError:
+            logging.exception("Failed on getting data to %s ." % path)
+    
+    def __get_data_curl(self):
+        pass
+    
+    def __get_data_urllib(self):
+        pass
+    
+    
 def get_14496_26_dir_structure():
     sc = StructureCapturer(SiteAddress, DirURL)
     sc.capture()
+
+def get_14496_26_data():
+    hds = HttpDataSyncer('scroot', SiteAddress, DirURL)
+    hds.sync()
     
 if __name__ == '__main__':
     pass
