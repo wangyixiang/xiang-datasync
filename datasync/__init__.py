@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 import filecmp
+import logging
 import os
 import shutil
 import subprocess
@@ -7,6 +8,7 @@ import sys
 
 class NotSupportedTypeArgumentError(Exception): pass
 class NotSVNSupportInShell(Exception): pass
+class NonAcceptedArgumentError(Exception): pass
 
 class DataSync(object):
     def __init__(self, source=None, dest=None):
@@ -327,8 +329,99 @@ class SVNSyncer(DataSync):
     def svn_url(self, url):
         self._svnurl = url
     
+class SVNRepoSyncer(DataSync):
+    _SVN_LOOK_YOUNGEST = ' youngest '
+    _SVN_ADMIN_HOTCOPY = ' hotcopy '
     
+    def __init__(self):
+        self._svnlook = 'svnlook'
+        self._svnadmin = 'svnadmin'
+        try:
+            subprocess.check_call([self._svnlook, '--version'], shell=True)
+            subprocess.check_call([self._svnadmin, '--version'], shell=True)
+        except subprocess.CalledProcessError:
+            logging.exception('The tools for subversion repository absent.')
+            sys.exit(-1)
+        self.repo_src_dir = ''
+        self.repo_dst_dir = ''
+        self.excluded_repos = []
+        
     
+    def _check_youngest(self, src_repo, dst_repo):
+        """
+        if src_repo is younger than dst_repo, return True;
+        anything else, it will return False.
+        """
+        try:
+            src_rev = subprocess.check_output(
+                [self._svnlook, self._SVN_LOOK_YOUNGEST, src_repo],
+                shell=True).strip()
+            dst_rev = subprocess.check_output(
+                [self._svnlook, self._SVN_LOOK_YOUNGEST, dst_repo],
+                shell=True).strip()
+            if not (src_rev.isdigit() and dst_rev.isdigit()):
+                logging.error("%s %s don't return pure numeric revision number." %
+                              (self._svnlook, self._SVN_LOOK_YOUNGEST ))
+                return False
+            if int(src_rev) > int(dst_rev):
+                return True
+            return False
+        except subprocess.CalledProcessError:
+            logging.exception('%s %s running fails.' % 
+                              (self._svnlook, self._SVN_LOOK_YOUNGEST))
+            return False
     
+    def _hot_copy(self, src_repo, dst_repo):
+        try:
+            subprocess.check_call(
+                [self._svnadmin, self._SVN_ADMIN_HOTCOPY, src_repo, dst_repo],
+                shell=True)
+            logging.info('%s %s %s to %s', 
+                         (self._svnadmin, self._SVN_ADMIN_HOTCOPY, 
+                          src_repo, dst_repo))
+        except subprocess.CalledProcessError:
+            logging.exception('%s %s %s to %s running fails.' %
+                              (self._svnadmin, self._SVN_ADMIN_HOTCOPY,
+                               src_repo, dst_repo))
+    
+    @property
+    def repo_src_dir(self):
+        return self._repo_src_dir
+    
+    @reps_src_dir.setter
+    def repo_src_dir(self, value):
+        self._repo_src_dir = value
+    
+    @property
+    def repo_dst_dir(self):
+        return self._repo_dst_dir
+    
+    @repo_dst_dir.setter
+    def repo_dst_dir(self, value):
+        if self.__dir_check(value):
+            self._repo_dst_dir
+        else:
+            raise NonAcceptedArgumentError()
+    @property
+    def excluded_repos(self):
+        return self._excluded_repos
+    
+    @excluded_repos.setter
+    def excluded_repos(self, value):
+        if not isinstance(value, (list, tuple)):
+            raise NonAcceptedArgumentError
+        try:
+            self._excluded_repos.extend(value)
+        except AttributeError:
+            self._excluded_repos = list().extend(value)
+    
+    def __dir_check(self, dst_repo):
+        return True
+    
+    def sync(self):
+        pass
+
+
+
 if __name__ == "__main__":
     pass
