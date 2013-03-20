@@ -349,10 +349,24 @@ class SVNRepoSyncer(DataSync):
     
     def _check_youngest(self, src_repo, dst_repo):
         """
-        if src_repo is younger than dst_repo, return True;
-        anything else, it will return False.
+        1.if src_repo does not exist or is not dir, return False;
+        2.if dst_repo absent, return True;
+        3.if dst_repo is a file, retrun False;
+        4.if src_repo is younger than dst_repo, return True;
+        5.anything else, it will return False.
         """
         try:
+            if not (os.path.exists(src_repo)):
+                logging.warn('repository %s does not exist.' % src_repo)
+                return False
+            if os.path.isdir(src_repo):
+                logging.warn('repository %s should be directory.' % src_repo)
+                return False            
+            if not (os.path.exists(dst_repo)):
+                return True                       
+            if not os.path.isdir(dst_repo):
+                logging.warn('%s exists as a file, it should not.' % dst_repo)
+                return False            
             src_rev = subprocess.check_output(
                 [self._svnlook, self._SVN_LOOK_YOUNGEST, src_repo],
                 shell=True).strip()
@@ -364,6 +378,7 @@ class SVNRepoSyncer(DataSync):
                               (self._svnlook, self._SVN_LOOK_YOUNGEST ))
                 return False
             if int(src_rev) > int(dst_rev):
+                logging.debug('%s is younger than %s' % (src_repo, dst_repo))
                 return True
             return False
         except subprocess.CalledProcessError:
@@ -419,8 +434,22 @@ class SVNRepoSyncer(DataSync):
         return True
     
     def sync(self):
-        pass
-
+        try:
+            repos = os.listdir(self.repo_src_dir)
+        except os.error as err:
+            logging.exception('Fail on listing repositories under %s' % self.repo_src_dir)
+            raise err
+        for excluded in self.excluded_repos:
+            if excluded in repos:
+                repos.remove(excluded)
+        for repo in repos:
+            if self._check_youngest(os.path.join(self.repo_src_dir, repo), 
+                                    os.path.join(self.repo_dst_dir, repo)):
+                self._hot_copy(os.path.join(self.repo_src_dir, repo),
+                               os.path.join(self.repo_dst_dir, repo))
+            else:
+                logging.debug('Backup for %s is up to date.' % 
+                              os.path.join(self.repo_src_dir, repo)
 
 
 if __name__ == "__main__":
