@@ -5,6 +5,7 @@ import os
 import shutil
 import subprocess
 import sys
+import time
 
 class NotSupportedTypeArgumentError(Exception): pass
 class NotSVNSupportInShell(Exception): pass
@@ -88,11 +89,11 @@ class DirectorySyncer(DataSync):
                             parent_path
                         ]))
                     except Exception:
-                        print "failed on mkdir %s" % ''.join([
+                        logging.error( 'failed on mkdir %s' % ''.join([
                             dest.rstrip(os.sep),
                             os.sep,
                             parent_path
-                            ])
+                            ]))
                         sys.exit(-1)
                 srcfile = ''.join([
                     src.rstrip(os.sep),
@@ -145,6 +146,17 @@ class DirectorySyncer(DataSync):
     
     def set_destination(self, dst_path):
         self.add_destination([dst_path])
+        
+    @property
+    def depth(self):
+        return self._depth
+    
+    @depth.setter
+    def depth(self, value):
+        if not isinstance(value, int):
+            raise NonAcceptedArgumentError()
+        else:
+            self._depth = value
     
     
 class SVNSyncer(DataSync):
@@ -390,14 +402,18 @@ class SVNRepoSyncer(DataSync):
         try:
             if os.path.exists(dst_repo):
                 if self.__dir_check(dst_repo):
-                    shutil.rmtree(dst_repo)
+                    if sys.platform == 'win32':
+                        subprocess.check_call(['rmdir','/s','/q',dst_repo], shell=True)
+                    else:
+                        shutil.rmtree(dst_repo)
+                    logging.debug('%s has been removed.' % dst_repo)
                 else:
                     logging.error('%s is not allow to touch.' % dst_repo)
                     return
             subprocess.check_call(
                 [self._svnadmin, self._SVN_ADMIN_HOTCOPY, src_repo, dst_repo],
                 shell=True)
-            logging.info('%s %s %s to %s', 
+            logging.info('%s %s %s to %s' % 
                          (self._svnadmin, self._SVN_ADMIN_HOTCOPY, 
                           src_repo, dst_repo))
         except subprocess.CalledProcessError:
@@ -441,7 +457,14 @@ class SVNRepoSyncer(DataSync):
         return True
     
     def sync(self):
+        if sys.platform == 'win32':
+            start_time = time.clock()
+            logging.info('Syncing of repositories started.')
         try:
+            if not os.path.exists(self.repo_dst_dir):
+                logging.warn('Destination directory %s does not exist. Creating it...'
+                             % (self.repo_dst_dir))
+                os.mkdir(self.repo_dst_dir)
             repos = os.listdir(self.repo_src_dir)
         except os.error as err:
             logging.exception('Fail on listing repositories under %s' % self.repo_src_dir)
@@ -457,7 +480,10 @@ class SVNRepoSyncer(DataSync):
             else:
                 logging.debug('Backup for %s is up to date.' % 
                               os.path.join(self.repo_src_dir, repo))
-
+        
+        if sys.platform == 'win32':
+            logging.info('Syncing of repositories finished. it used %f seconds', time.clock())
 
 if __name__ == "__main__":
     pass
+    
