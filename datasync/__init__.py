@@ -330,10 +330,10 @@ class SVNSyncer(DataSync):
         self._svnurl = url
     
 class SVNRepoSyncer(DataSync):
-    _SVN_LOOK_YOUNGEST = ' youngest '
-    _SVN_ADMIN_HOTCOPY = ' hotcopy '
+    _SVN_LOOK_YOUNGEST = 'youngest'
+    _SVN_ADMIN_HOTCOPY = 'hotcopy'
     
-    def __init__(self):
+    def __init__(self, src_repo='', dst_repo=''):
         self._svnlook = 'svnlook'
         self._svnadmin = 'svnadmin'
         try:
@@ -342,8 +342,8 @@ class SVNRepoSyncer(DataSync):
         except subprocess.CalledProcessError:
             logging.exception('The tools for subversion repository absent.')
             sys.exit(-1)
-        self.repo_src_dir = ''
-        self.repo_dst_dir = ''
+        self.repo_src_dir = src_repo
+        self.repo_dst_dir = dst_repo
         self.excluded_repos = []
         
     
@@ -359,7 +359,7 @@ class SVNRepoSyncer(DataSync):
             if not (os.path.exists(src_repo)):
                 logging.warn('repository %s does not exist.' % src_repo)
                 return False
-            if os.path.isdir(src_repo):
+            if not os.path.isdir(src_repo):
                 logging.warn('repository %s should be directory.' % src_repo)
                 return False            
             if not (os.path.exists(dst_repo)):
@@ -388,6 +388,12 @@ class SVNRepoSyncer(DataSync):
     
     def _hot_copy(self, src_repo, dst_repo):
         try:
+            if os.path.exists(dst_repo):
+                if self.__dir_check(dst_repo):
+                    shutil.rmtree(dst_repo)
+                else:
+                    logging.error('%s is not allow to touch.' % dst_repo)
+                    return
             subprocess.check_call(
                 [self._svnadmin, self._SVN_ADMIN_HOTCOPY, src_repo, dst_repo],
                 shell=True)
@@ -403,7 +409,7 @@ class SVNRepoSyncer(DataSync):
     def repo_src_dir(self):
         return self._repo_src_dir
     
-    @reps_src_dir.setter
+    @repo_src_dir.setter
     def repo_src_dir(self, value):
         self._repo_src_dir = value
     
@@ -414,7 +420,7 @@ class SVNRepoSyncer(DataSync):
     @repo_dst_dir.setter
     def repo_dst_dir(self, value):
         if self.__dir_check(value):
-            self._repo_dst_dir
+            self._repo_dst_dir = value
         else:
             raise NonAcceptedArgumentError()
     @property
@@ -428,7 +434,8 @@ class SVNRepoSyncer(DataSync):
         try:
             self._excluded_repos.extend(value)
         except AttributeError:
-            self._excluded_repos = list().extend(value)
+            self._excluded_repos = list()
+            self._excluded_repos.extend(value)
     
     def __dir_check(self, dst_repo):
         return True
@@ -449,7 +456,7 @@ class SVNRepoSyncer(DataSync):
                                os.path.join(self.repo_dst_dir, repo))
             else:
                 logging.debug('Backup for %s is up to date.' % 
-                              os.path.join(self.repo_src_dir, repo)
+                              os.path.join(self.repo_src_dir, repo))
 
 
 if __name__ == "__main__":
