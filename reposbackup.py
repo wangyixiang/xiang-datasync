@@ -58,6 +58,7 @@ def sync_to_backup():
       
     dirsyncer = DirectorySyncer([REPODSTDIR], [backup_repo_fullpath])
     dirsyncer.depth = 100
+    dirsyncer.ignore_empty_dir = False
     logging.info('Syncing of repositores backup directory started.')
     dirsyncer.sync()
     logging.info('Syncing of repositores backup directory finished. it used %f seconds'
