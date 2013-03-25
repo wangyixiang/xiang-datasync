@@ -65,7 +65,7 @@ def sync_to_backup():
 if __name__ == '__main__':
     logging.getLogger().setLevel(logging.DEBUG)
     fh = logging.FileHandler('reposync.log','a')
-    fh.setLevel(logging.WARNING)
+    fh.setLevel(logging.INFO)
     ch = logging.StreamHandler()
     ch.setLevel(logging.DEBUG)
     formatter = logging.Formatter('%(asctime)s-%(name)s-%(levelname)s-%(message)s')
