@@ -59,6 +59,7 @@ class DirectorySyncer(DataSync):
         self._excluded = []
         self._included = []
         self._depth = 1
+        self._ignore_empty = True
     
     def sync(self):
         """
@@ -120,6 +121,29 @@ class DirectorySyncer(DataSync):
         
         paths = os.listdir(''.join([src.rstrip(os.sep), os.sep, parent_path]))
         
+        if len(paths) == 0:
+            if not self.ignore_empty_dir:
+                for dest in dest_list:
+                    if not os.path.exists(''.join([
+                        dest.rstrip(os.sep),
+                        os.sep,
+                        parent_path
+                        ])):
+                        try:
+                            os.makedirs(''.join([
+                                dest.rstrip(os.sep),
+                                os.sep,
+                                parent_path
+                            ]))
+                        except Exception:
+                            logging.error( 'failed on mkdir %s' % ''.join([
+                                dest.rstrip(os.sep),
+                                os.sep,
+                                parent_path
+                                ]))
+                            sys.exit(-1)
+            return
+        
         for path in paths:
             if os.path.isdir(''.join([
                 src.rstrip(os.sep), 
@@ -157,6 +181,17 @@ class DirectorySyncer(DataSync):
             raise NonAcceptedArgumentError()
         else:
             self._depth = value
+    
+    @property
+    def ignore_empty_dir(self):
+        return self._ignore_empty
+    
+    @ignore_empty_dir.setter
+    def ignore_empty_dir(self, value):
+        if not isinstance(value, bool):
+            raise NonAcceptedArgumentError()
+        else:
+            self._ignore_empty = value
     
     
 class SVNSyncer(DataSync):
