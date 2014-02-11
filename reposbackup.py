@@ -4,6 +4,7 @@ import os
 import shutil
 import sys
 import time
+import platform
 
 from datasync import SVNRepoSyncer
 from datasync import DirectorySyncer
@@ -55,6 +56,9 @@ def sync_to_backup():
         except os.error:
             logging.exception('Failed at removing old backup repo %s' %
                               os.path.join(dst_dir, oldrepo))
+            if platform.system() == "Windows":
+                logging.info("We're on Windows, Try Windows directory command rmdir.")
+                os.system("rmdir /S /Q %s" % os.path.join(dst_dir, oldrepo))
       
     dirsyncer = DirectorySyncer([REPODSTDIR], [backup_repo_fullpath])
     dirsyncer.depth = 100
@@ -63,6 +67,7 @@ def sync_to_backup():
     dirsyncer.sync()
     logging.info('Syncing of repositores backup directory finished. it used %f seconds'
                  % time.clock())
+    
 if __name__ == '__main__':
     logging.getLogger().setLevel(logging.DEBUG)
     fh = logging.FileHandler('reposync.log','a')
@@ -74,5 +79,10 @@ if __name__ == '__main__':
     ch.setFormatter(formatter)
     logging.getLogger().addHandler(fh)
     logging.getLogger().addHandler(ch)
+    os.system(r'')
+    logging.info('Connected to backup server')
     sync_svn_repos()
     sync_to_backup()
+    os.system(r'')
+    logging.info('Disconnected to backup server')
+    logging.info("fileserver's svnbackup synchronizing completed.")
